@@ -48,7 +48,7 @@ uint16_t create_route_msg(char *buf, uip_ds6_route_t *r)
 	uint8_t n = 0;
 	n += sprintf(&(buf[n]), "{\"dest\":\"");
 	n += ipaddr_add(&r->ipaddr, &(buf[n])); 
-	n += sprintf(&(buf[n]), "\",\"next\":");
+	n += sprintf(&(buf[n]), "\",\"next\":\"");
 	n += ipaddr_add(&r->nexthop, &(buf[n])); 
 	n += sprintf(&(buf[n]), "\"}");
 	buf[n] = 0;
@@ -149,10 +149,10 @@ uint16_t create_parent_msg(char *buf, rpl_parent_t *parent, uint8_t preferred)
 	uint8_t n = 0;
 
 	n += sprintf(&(buf[n]), "{\"eui\":\"%04x%04x%04x%04x\",", 
-				 parent->addr.u16[4],
-				 parent->addr.u16[5],
-				 parent->addr.u16[6],
-				 parent->addr.u16[7]);
+		     UIP_HTONS(parent->addr.u16[4]),
+		     UIP_HTONS(parent->addr.u16[5]),
+		     UIP_HTONS(parent->addr.u16[6]),
+		     UIP_HTONS(parent->addr.u16[7]));
 	n += sprintf(&(buf[n]), "\"pref\":");
 	if(preferred == 1) {
 		n += sprintf(&(buf[n]), "true,");
