@@ -17,7 +17,7 @@
 #define DEBUG DEBUG_FULL
 #include "net/uip-debug.h"
 
-#define MAX_ENTRY_LEN 64
+#define MAX_ENTRY_LEN 256
 
 uint16_t 
 ipaddr_add(const uip_ipaddr_t *addr, char *buf)
