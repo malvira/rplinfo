@@ -57,7 +57,6 @@ uint16_t create_route_msg(char *buf, uip_ds6_route_t *r)
 }
 
 RESOURCE(routes, METHOD_GET, "rplinfo/routes", "title=\"RPL route info\";rt=\"Data\"");
-
 void
 routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
@@ -70,24 +69,30 @@ routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
   const char *pstr;
   uint8_t count;
 
-  if ((len = REST.get_query_variable(request, "index", &pstr))) {
-    index = (uint8_t)atoi(pstr);
-    /* seek to the route entry and return it */
-    i = 0;
-    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r), i++) {
-      if (i == index) {
-	break;
-      }
-    }
-    strpos = create_route_msg(buffer, r);
+	/* count the number of routes and return the total */
+	count = 0;
+	for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+		count++;
+	}
 
-  } else {
-    /* index not provided */
-    /* count the number of routes and return the total */
-    count = 0;
-    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-      count++;
-    }
+  if ((len = REST.get_query_variable(request, "index", &pstr))) {
+
+		index = (uint8_t)atoi(pstr);
+
+		if (index >= count ) {
+			strpos = snprintf(buffer, preferred_size, "{}");
+		} else { 
+			/* seek to the route entry and return it */
+			i = 0;
+			for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r), i++) {
+				if (i == index) {
+					break;
+				}
+			}
+			strpos = create_route_msg(buffer, r);
+		}
+
+  } else { /* index not provided */
     strpos += snprintf((char *)buffer, preferred_size, "%d", count);
   }
 
@@ -131,83 +136,58 @@ void
 parents_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
   int32_t strpos = 0;
+  uip_ds6_route_t *r;
+  volatile uint8_t i;
   rpl_dag_t *dag;
   rpl_parent_t *parent;
-  const char *neighbor_header = "{\"parents\":[";
-  const char *neighbor_footer = "]}";
-  volatile uint8_t i;
-  char entry[MAX_ENTRY_LEN];
-  uint16_t entry_len;
 
-  PRINTF("pref size %d\n\r", preferred_size);
+  size_t len = 0;
+  uint8_t index;
+  const char *pstr;
+  uint8_t count;
 
-  if (*offset == 0) {
-    /* send header */    
-    PRINTF("do header\n\r");
-    strpos += snprintf((char *)buffer+strpos, preferred_size-strpos+1, neighbor_header);
-    cur_neigh_entry = 0;
-    entry_char_skip = 0;
-  } 
-
-  PRINTF("offset %d\n\r", *offset);
-  PRINTF("cur_neigh_entry %d\n\r", cur_neigh_entry);
-  PRINTF("entry_char_skip %d\n\r", entry_char_skip);
-  
   dag = rpl_get_any_dag();
-  if(dag != NULL) {
-    
-    /* seek to the current entry */
-    for (parent = dag->preferred_parent, i = 0; parent != NULL; parent = parent->next, i++) {
-      if ( i == cur_neigh_entry ) {
-	break;
-      }
-    }
-    
-    /* fill buffer until past preferred size */
-    for (; parent != NULL; parent = parent->next) {
-      if (parent == dag->preferred_parent) { 
-	entry_len = create_parent_msg(entry, parent, 1);
-      } else {
-	entry_len = create_parent_msg(entry, parent, 0);
-      }
-//      PRINTF("skipping %d chars\n\r", entry_char_skip);
-      strpos += snprintf((char * )buffer+strpos, preferred_size-strpos+1, &(entry[entry_char_skip]));
-      if(entry_char_skip != 0) { entry_char_skip = 0; } 
-      if(parent->next != NULL) {
-	strpos += snprintf((char * )buffer+strpos, preferred_size-strpos+1, ",");
-      }
-      if (strpos > preferred_size) {
-	break;
-      }
-      cur_neigh_entry++;
-    }      
-    
-    if (strpos > preferred_size)
-    {
-      entry_char_skip = entry_len - (strpos - preferred_size) + 1;
-      strpos = preferred_size;
-    } else {
-      entry_char_skip = 0;
-    }
-    
-    if (parent == NULL)
-    {
-      /* Signal end of resource representation. */
-      PRINTF("signal end\n\r");
-      strpos += snprintf((char *)buffer+strpos, preferred_size-strpos+1, neighbor_footer);
-      *offset = -1;
-    } else {
-      *offset += strpos;
-    }      
-  }
 
-  /* snprintf() does not adjust return value if truncated by size. */
-  if (strpos > preferred_size)
-  {
-    strpos = preferred_size;
-  }
-  
-  REST.set_response_payload(response, buffer, strpos);
+  if(dag != NULL) {
+
+		/* count the number of routes and return the total */
+		count = 0;
+		for (parent = dag->preferred_parent, i = 0; parent != NULL; parent = parent->next) {
+			count++;
+		}
+		
+		if ((len = REST.get_query_variable(request, "index", &pstr))) {
+
+			index = (uint8_t)atoi(pstr);
+
+			if (index >= count) {
+				strpos = snprintf(buffer, preferred_size, "{}");
+			} else { 
+				/* seek to the route entry and return it */
+				i = 0;
+				for (parent = dag->preferred_parent, i = 0; parent != NULL; parent = parent->next, i++) {
+					if (i == index) {
+						break;
+					}
+				}
+				
+				if (parent == dag->preferred_parent) { 
+					strpos = create_parent_msg(buffer, parent, 1);
+				} else {
+					strpos = create_parent_msg(buffer, parent, 0);
+				}
+			}	
+
+		} else { /* index not provided */
+			strpos += snprintf((char *)buffer, preferred_size, "%d", count);
+		}
+		
+	} else { /* no DAG */
+		strpos += snprintf((char *)buffer, preferred_size, "{\"err\": \"no DAG\"}");
+	}
+
+	*offset = -1;		
+	REST.set_response_payload(response, buffer, strpos);
 
 }
 
