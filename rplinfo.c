@@ -111,7 +111,7 @@ routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
   
   if (strpos > preferred_size)
   {
-    r_entry_char_skip = entry_len - (strpos - preferred_size);
+    r_entry_char_skip = entry_len - (strpos - preferred_size) + 1;
     strpos = preferred_size;
   } else {
     r_entry_char_skip = 0;
@@ -228,7 +228,7 @@ parents_handler(void* request, void* response, uint8_t *buffer, uint16_t preferr
     
     if (strpos > preferred_size)
     {
-      entry_char_skip = entry_len - (strpos - preferred_size);
+      entry_char_skip = entry_len - (strpos - preferred_size) + 1;
       strpos = preferred_size;
     } else {
       entry_char_skip = 0;
