@@ -69,33 +69,35 @@ routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
   const char *pstr;
   uint8_t count;
 
-	/* count the number of routes and return the total */
-	count = 0;
-	for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-		count++;
-	}
-
+  /* count the number of routes and return the total */
+  count = 0;
+  for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+    count++;
+  }
+  
   if ((len = REST.get_query_variable(request, "index", &pstr))) {
-
-		index = (uint8_t)atoi(pstr);
-
-		if (index >= count ) {
-			strpos = snprintf(buffer, preferred_size, "{}");
-		} else { 
-			/* seek to the route entry and return it */
-			i = 0;
-			for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r), i++) {
-				if (i == index) {
-					break;
-				}
-			}
-			strpos = create_route_msg(buffer, r);
-		}
-
+    
+    index = (uint8_t)atoi(pstr);
+    
+    if (index >= count ) {
+      strpos = snprintf(buffer, preferred_size, "{}");
+    } else { 
+      /* seek to the route entry and return it */
+      i = 0;
+      for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r), i++) {
+	if (i == index) {
+	  break;
+	}
+      }
+      strpos = create_route_msg(buffer, r);
+    }
+  
+    REST.set_header_content_type(response, APPLICATION_JSON);
+  
   } else { /* index not provided */
     strpos += snprintf((char *)buffer, preferred_size, "%d", count);
   }
-
+  
   *offset = -1;
   
   REST.set_response_payload(response, buffer, strpos);
@@ -178,12 +180,15 @@ parents_handler(void* request, void* response, uint8_t *buffer, uint16_t preferr
 				}
 			}	
 
+			REST.set_header_content_type(response, APPLICATION_JSON);
+
 		} else { /* index not provided */
 			strpos += snprintf((char *)buffer, preferred_size, "%d", count);
 		}
 		
 	} else { /* no DAG */
 		strpos += snprintf((char *)buffer, preferred_size, "{\"err\": \"no DAG\"}");
+		REST.set_header_content_type(response, APPLICATION_JSON);
 	}
 
 	*offset = -1;		
