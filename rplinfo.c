@@ -9,15 +9,25 @@
 #include "net/rpl/rpl.h"
 
 #include "erbium.h"
-#include "er-coap-07.h"
+#if WITH_COAP == 3
+#include "er-coap-03-engine.h"
+#elif WITH_COAP == 6
+#include "er-coap-06-engine.h"
+#elif WITH_COAP == 7
+#include "er-coap-07-engine.h"
+#elif WITH_COAP == 12
+#include "er-coap-12-engine.h"
+#elif WITH_COAP == 13
+#include "er-coap-13-engine.h"
+#else
+#error "CoAP version defined by WITH_COAP not implemented"
+#endif
 
 #include "rplinfo.h"
 
 /* debug */
 #define DEBUG DEBUG_FULL
 #include "net/uip-debug.h"
-
-#define MAX_ENTRY_LEN 256
 
 uint16_t 
 ipaddr_add(const uip_ipaddr_t *addr, char *buf)
@@ -49,7 +59,7 @@ uint16_t create_route_msg(char *buf, uip_ds6_route_t *r)
 	n += sprintf(&(buf[n]), "{\"dest\":\"");
 	n += ipaddr_add(&r->ipaddr, &(buf[n])); 
 	n += sprintf(&(buf[n]), "\",\"next\":\"");
-	n += ipaddr_add(&r->nexthop, &(buf[n])); 
+	n += ipaddr_add(uip_ds6_route_nexthop(r), &(buf[n])); 
 	n += sprintf(&(buf[n]), "\"}");
 	buf[n] = 0;
 	PRINTF("buf: %s\n", buf);
@@ -70,10 +80,7 @@ routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
   uint8_t count;
 
   /* count the number of routes and return the total */
-  count = 0;
-  for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-    count++;
-  }
+  count = uip_ds6_route_num_routes();
   
   if ((len = REST.get_query_variable(request, "index", &pstr))) {
     
@@ -84,7 +91,7 @@ routes_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
     } else { 
       /* seek to the route entry and return it */
       i = 0;
-      for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r), i++) {
+      for(r = uip_ds6_route_head(); r != NULL; r = uip_ds6_route_next(r), i++) {
 	if (i == index) {
 	  break;
 	}
@@ -111,18 +118,20 @@ uint16_t create_parent_msg(char *buf, rpl_parent_t *parent, uint8_t preferred)
 {
 	uint8_t n = 0;
 
+    uip_ipaddr_t * addr = rpl_get_parent_ipaddr(parent);
+
 	n += sprintf(&(buf[n]), "{\"eui\":\"%04x%04x%04x%04x\",", 
-		     UIP_HTONS(parent->addr.u16[4]),
-		     UIP_HTONS(parent->addr.u16[5]),
-		     UIP_HTONS(parent->addr.u16[6]),
-		     UIP_HTONS(parent->addr.u16[7]));
+		     UIP_HTONS(addr->u16[4]),
+		     UIP_HTONS(addr->u16[5]),
+		     UIP_HTONS(addr->u16[6]),
+		     UIP_HTONS(addr->u16[7]));
 	n += sprintf(&(buf[n]), "\"pref\":");
 	if(preferred == 1) {
 		n += sprintf(&(buf[n]), "true,");
 	} else {
 		n += sprintf(&(buf[n]), "false,");
 	}
-	n += sprintf(&(buf[n]), "\"etx\":%d}", parent->mc.obj.etx);
+	n += sprintf(&(buf[n]), "\"etx\":%d}", parent->link_metric);
 
 	buf[n] = 0;
 	PRINTF("buf: %s\n", buf);
@@ -201,4 +210,3 @@ rplinfo_activate_resources(void) {
   rest_activate_resource(&resource_parents);
   rest_activate_resource(&resource_routes);
 }
-
